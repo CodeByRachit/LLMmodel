@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeLpYoU - AI Chat</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js CDN for 3D background animation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        /* Custom styles for the Inter font and overall layout */
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #0d0d0d; /* Deep dark background */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1.5rem;
+            color: #e0e0e0;
+            overflow: hidden; /* Hide body overflow to prevent main scrollbar */
+            position: relative; /* Needed for z-index context */
+            z-index: 1; /* Ensure body content is above canvas */
+
+            /* Custom scrollbar for Webkit browsers (Chrome, Safari) */
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+        }
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        body::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        body {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+
+
+        /* 3D Background Canvas */
+        #three-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* Place behind all other content */
+            background-color: #0d0d0d; /* Fallback/base color for the background */
+        }
+
+        /* Main content area (where responses will appear) */
+        .content-area {
+            flex-grow: 1; /* Allows it to take available space */
+            width: 100%;
+            max-width: 900px;
+            padding: 1rem 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            gap: 1rem;
+            min-height: 0; /* Allow content to shrink if needed */
+            max-height: calc(100vh - 180px); /* Max height before scrolling, adjusted for input + padding */
+            overflow-y: auto; /* Crucial: Make this area independently scrollable */
+            position: relative;
+            z-index: 2;
+
+            /* Custom scrollbar for Webkit browsers */
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+        }
+        /* Custom scrollbar styling for content-area */
+        .content-area::-webkit-scrollbar {
+            width: 8px; /* Width of the scrollbar */
+        }
+        .content-area::-webkit-scrollbar-track {
+            background: #2a2a2a; /* Track color */
+            border-radius: 10px;
+        }
+        .content-area::-webkit-scrollbar-thumb {
+            background: #555555; /* Thumb color */
+            border-radius: 10px;
+        }
+        .content-area::-webkit-scrollbar-thumb:hover {
+            background: #777777; /* Thumb color on hover */
+        }
+
+
+        /* Chat input container */
+        .chat-input-container {
+            width: 100%;
+            max-width: 900px;
+            background-color: #202020;
+            border-radius: 1.5rem;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
+            padding: 0.75rem 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            margin-top: auto;
+            position: sticky;
+            bottom: 1.5rem;
+            z-index: 10;
+        }
+
+        .input-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .chat-input-container textarea {
+            flex-grow: 1;
+            background-color: transparent;
+            border: none;
+            outline: none;
+            color: #e0e0e0; /* Ensure text is visible */
+            font-size: 1.05rem;
+            resize: none;
+            min-height: 24px;
+            max-height: 120px;
+            overflow-y: auto;
+            padding: 0.5rem 0;
+            line-height: 1.5;
+        }
+        .chat-input-container textarea::placeholder {
+            color: #888888; /* Ensure placeholder is visible */
+        }
+        .chat-input-container textarea:focus {
+            box-shadow: none;
+        }
+
+        .input-actions-bottom {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .input-action-btn {
+            background-color: #333333;
+            color: #b0b0b0;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.6rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            border: none;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+        .input-action-btn:hover {
+            background-color: #444444;
+            transform: translateY(-1px);
+        }
+        .input-action-btn:active {
+            transform: translateY(0);
+        }
+        .input-action-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Send button */
+        #send-button {
+            background: linear-gradient(to right, #7b68ee, #a29bfe);
+            color: white;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s ease-in-out;
+            border: none;
+        }
+        #send-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+        }
+        #send-button:active {
+            transform: scale(0.98);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        #send-button svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        #loading-indicator {
+            display: none;
+            text-align: center;
+            color: #a0a0a0;
+            font-style: italic;
+            margin-top: 1rem;
+            font-size: 0.95rem;
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+
+        /* Response display area */
+        .response-area {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding-bottom: 2rem;
+        }
+        .message-bubble {
+            background-color: #2a2a2a;
+            border-radius: 0.75rem;
+            padding: 1rem 1.2rem;
+            color: #e0e0e0;
+            line-height: 1.6;
+            font-size: 0.95rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            align-self: flex-start;
+            max-width: 85%;
+            overflow-wrap: break-word; /* Ensure long words break */
+            white-space: pre-wrap; /* Preserve formatting */
+        }
+        .user-message-bubble {
+            background-color: #4a4e69;
+            align-self: flex-end;
+        }
+
+        .message-box {
+            background-color: #4a2a2a;
+            color: #ffaaaa;
+            border: 1px solid #ff6666;
+            border-radius: 0.75rem;
+            padding: 0.8rem 1rem;
+            margin-top: 1rem;
+            text-align: center;
+            display: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 900px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+            .content-area, .chat-input-container {
+                max-width: 100%;
+            }
+            .chat-input-container {
+                padding: 0.6rem 1rem;
+                border-radius: 1rem;
+            }
+            .chat-input-container textarea {
+                font-size: 1rem;
+            }
+            .input-actions-bottom {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 0.4rem;
+            }
+            .input-action-btn {
+                padding: 0.4rem 0.6rem;
+                font-size: 0.8rem;
+            }
+            #send-button {
+                width: 40px;
+                height: 40px;
+            }
+            #send-button svg {
+                width: 20px;
+                height: 20px;
+            }
+            .message-bubble {
+                max-width: 95%;
+                padding: 0.8rem 1rem;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+    <!-- Lucide Icons for a professional touch -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <canvas id="three-bg"></canvas> <!-- 3D background canvas -->
+
+    <div class="content-area" id="chat-history">
+        <!-- Chat messages will be appended here -->
+    </div>
+
+    <div id="message-box" class="message-box"></div>
+    <div id="loading-indicator" class="text-sm">Generating response... Please wait.</div>
+
+    <div class="chat-input-container">
+        <div class="input-row">
+            <button class="input-action-btn" title="Add More (Placeholder)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            </button>
+            <textarea id="prompt-input" placeholder="Ask HeLpYoU" rows="1"></textarea>
+            <button id="send-button" title="Send Message">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send"><path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"/></svg>
+            </button>
+        </div>
+        <div class="input-actions-bottom">
+            <button class="input-action-btn" title="Add Image">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 00-2.828 0L6 21"/></svg>
+                <span>Image</span>
+            </button>
+            <!-- Microphone icon for voice input, as seen in the example -->
+            <button class="input-action-btn" title="Voice Input (Placeholder)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mic"><path d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Get references to DOM elements
+        const promptInput = document.getElementById('prompt-input');
+        const sendButton = document.getElementById('send-button');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const messageBox = document.getElementById('message-box');
+        const chatHistory = document.getElementById('chat-history');
+
+        // Adjust textarea height dynamically
+        promptInput.addEventListener('input', () => {
+            promptInput.style.height = 'auto'; // Reset height
+            promptInput.style.height = promptInput.scrollHeight + 'px'; // Set to scroll height
+        });
+
+        // Function to display messages (errors, info)
+        function showMessage(message, type = 'error') {
+            messageBox.textContent = message;
+            messageBox.className = `message-box ${type === 'error' ? 'bg-red-100 text-red-700 border-red-400' : 'bg-blue-100 text-blue-700 border-blue-400'} block`;
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, 5000); // Hide after 5 seconds
+        }
+
+        // Function to add a message bubble to the chat history with typing animation
+        function addMessage(text, isUser = false) {
+            const messageBubble = document.createElement('div');
+            messageBubble.classList.add('message-bubble');
+            if (isUser) {
+                messageBubble.classList.add('user-message-bubble');
+                messageBubble.textContent = text; // User messages appear instantly
+                chatHistory.appendChild(messageBubble);
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            } else {
+                // AI message with typing animation
+                chatHistory.appendChild(messageBubble);
+                let i = 0;
+                const typingSpeed = 15; // milliseconds per character
+
+                function typeCharacter() {
+                    if (i < text.length) {
+                        messageBubble.textContent += text.charAt(i);
+                        i++;
+                        chatHistory.scrollTop = chatHistory.scrollHeight; // Keep scrolling
+                        setTimeout(typeCharacter, typingSpeed);
+                    } else {
+                        // Ensure scroll to bottom after typing is complete
+                        chatHistory.scrollTop = chatHistory.scrollHeight;
+                    }
+                }
+                typeCharacter();
+            }
+        }
+
+        // Event listener for the send button
+        sendButton.addEventListener('click', async () => {
+            console.log("Send button clicked!"); // Log to confirm click
+            const prompt = promptInput.value.trim();
+
+            if (!prompt) {
+                showMessage("Please enter a prompt.", "error");
+                return;
+            }
+
+            // Add user message to chat history
+            addMessage(prompt, true);
+
+            // Clear input and reset height
+            promptInput.value = '';
+            promptInput.style.height = '24px'; // Reset to initial height
+
+            // Show loading indicator
+            loadingIndicator.style.display = 'block';
+            sendButton.disabled = true;
+            messageBox.style.display = 'none';
+
+            const backendUrl = 'http://127.0.0.1:5000/generate';
+            const MAX_RETRIES = 5;
+            const INITIAL_DELAY = 1000;
+
+            for (let i = 0; i < MAX_RETRIES; i++) {
+                try {
+                    const response = await fetch(backendUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prompt: prompt })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`Backend error! status: ${response.status} - ${errorData.error || response.statusText}`);
+                    }
+
+                    const result = await response.json();
+
+                    if (result.response) {
+                        addMessage(result.response, false); // Add AI response to chat history with animation
+                        break;
+                    } else {
+                        showMessage("No valid response from the backend. The model might not have generated content for this prompt.", "info");
+                        break;
+                    }
+                } catch (error) {
+                    console.error(`Attempt ${i + 1} failed:`, error);
+                    if (i < MAX_RETRIES - 1) {
+                        const delay = INITIAL_DELAY * Math.pow(2, i);
+                        await new Promise(res => setTimeout(res, delay));
+                    } else {
+                        showMessage(`Failed to get response after multiple attempts: ${error.message}. Please ensure your Python backend is running.`, "error");
+                    }
+                } finally {
+                    // This block ensures loading indicator and button state are reset
+                    // even if the result.response check fails or an error occurs.
+                    loadingIndicator.style.display = 'none';
+                    sendButton.disabled = false;
+                }
+            }
+        });
+
+        // --- Three.js Background Animation ---
+        let scene, camera, renderer, particles;
+        let particleCount = 500; // Number of stars
+        let particleGeometry, particleMaterial;
+        let mouseX = 0, mouseY = 0;
+        let targetX = 0, targetY = 0;
+        const windowHalfX = window.innerWidth / 2;
+        const windowHalfY = window.innerHeight / 2;
+
+        function initThreeJS() {
+            const canvas = document.getElementById('three-bg');
+            // Scene
+            scene = new THREE.Scene();
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 50;
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            // Particles (Stars)
+            particleGeometry = new THREE.BufferGeometry();
+            const positions = [];
+            const colors = [];
+            const sizes = []; // For varying particle sizes
+            const color = new THREE.Color();
+
+            for (let i = 0; i < particleCount; i++) {
+                // Position particles randomly in a cube
+                const x = (Math.random() - 0.5) * 200;
+                const y = (Math.random() - 0.5) * 200;
+                const z = (Math.random() - 0.5) * 200;
+                positions.push(x, y, z);
+
+                // Assign random colors (subtle variations of white/gray)
+                const c = Math.random() * 0.5 + 0.5; // From 0.5 to 1.0 for brightness
+                color.setRGB(c, c, c);
+                colors.push(color.r, color.g, color.b);
+
+                sizes.push(Math.random() * 1.5 + 0.5); // Varying sizes for twinkling effect
+            }
+
+            particleGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            particleGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            particleGeometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1)); // Add size attribute
+
+            // Custom shader for twinkling
+            particleMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    pointTexture: { value: new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png') }, // A simple disc texture for points
+                    time: { value: 0.0 }
+                },
+                vertexShader: `
+                    attribute float size;
+                    attribute vec3 color;
+                    varying vec3 vColor;
+                    uniform float time;
+
+                    void main() {
+                        vColor = color;
+                        vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+                        // Twinkling effect based on time and position
+                        float twinkleFactor = sin( time * 5.0 + position.x * 0.1 + position.y * 0.1 ) * 0.5 + 0.5;
+                        gl_PointSize = size * ( 300.0 / -mvPosition.z ) * twinkleFactor;
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    uniform sampler2D pointTexture;
+                    varying vec3 vColor;
+
+                    void main() {
+                        gl_FragColor = vec4( vColor, 1.0 );
+                        gl_FragColor = gl_FragColor * texture2D( pointTexture, gl_PointCoord );
+                    }
+                `,
+                blending: THREE.AdditiveBlending,
+                depthTest: false,
+                transparent: true
+            });
+
+
+            particles = new THREE.Points(particleGeometry, particleMaterial);
+            scene.add(particles);
+
+            // Initial camera rotation for a dynamic feel
+            camera.rotation.x = 0.1;
+            camera.rotation.y = 0.1;
+
+            // Event listener for mouse movement
+            document.addEventListener('mousemove', onDocumentMouseMove);
+
+            animateThreeJS();
+        }
+
+        let twinkleTime = 0;
+        function animateThreeJS() {
+            requestAnimationFrame(animateThreeJS);
+
+            // Update mouse target for smooth follow effect
+            targetX += (mouseX - targetX) * 0.02;
+            targetY += (mouseY - targetY) * 0.02;
+
+            // Apply subtle rotation based on mouse position
+            particles.rotation.x = (targetY - windowHalfY) * 0.00005;
+            particles.rotation.y = (targetX - windowHalfX) * 0.00005;
+
+            // Subtle overall rotation for general movement
+            particles.rotation.x += 0.0001;
+            particles.rotation.y += 0.0002;
+
+            // Update time for shader uniform
+            twinkleTime += 0.01; // Slower twinkle speed
+            if (particleMaterial.uniforms) {
+                particleMaterial.uniforms.time.value = twinkleTime;
+            }
+
+
+            renderer.render(scene, camera);
+        }
+
+        function onDocumentMouseMove(event) {
+            mouseX = event.clientX - windowHalfX;
+            mouseY = event.clientY - windowHalfY;
+        }
+
+        // Handle window resizing
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Start the Three.js animation on window load
+        window.onload = function () {
+            initThreeJS();
+        }
+
+    </script>
+</body>
+</html>
