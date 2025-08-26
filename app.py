@@ -11,9 +11,9 @@ CORS(app) # Enable CORS for all routes, allowing frontend to access it
 # IMPORTANT: Your Gemini API key is integrated here.
 # It's highly recommended to use environment variables for API keys in production.
 # For local development, this will use the provided key if GEMINI_API_KEY env var is not set.
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyC-PNpcGZ31vGuXGqWyW871qGS8Q35YUmc")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "Your API KEY")
 
-if GEMINI_API_KEY == "AIzaSyC-PNpcGZ31vGuXGqWyW871qGS8Q35YUmc":
+if GEMINI_API_KEY == "Your API KEY":
     print("NOTE: Using the API key directly embedded in app.py. For production, consider using environment variables.")
 
 genai.configure(api_key=GEMINI_API_KEY)
@@ -72,3 +72,4 @@ if __name__ == '__main__':
     # Run the Flask app
     # debug=True allows for auto-reloading on code changes (for development)
     app.run(debug=True, port=5000)
+
