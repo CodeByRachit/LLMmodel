@@ -5,12 +5,7 @@ from flask_cors import CORS
 import time
 
 app = Flask(__name__)
-CORS(app) # Enable CORS for all routes, allowing frontend to access it
-
-# --- Configuration ---
-# IMPORTANT: Your Gemini API key is integrated here.
-# It's highly recommended to use environment variables for API keys in production.
-# For local development, this will use the provided key if GEMINI_API_KEY env var is not set.
+CORS(app)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "Your API KEY")
 
 if GEMINI_API_KEY == "Your API KEY":
@@ -19,7 +14,6 @@ if GEMINI_API_KEY == "Your API KEY":
 genai.configure(api_key=GEMINI_API_KEY)
 
 # --- Routes ---
-
 @app.route('/')
 def serve_index():
     """Serves the index.html file."""
@@ -69,7 +63,6 @@ def generate_response():
         return jsonify({'error': f'Failed to generate response: {str(e)}'}), 500
 
 if __name__ == '__main__':
-    # Run the Flask app
-    # debug=True allows for auto-reloading on code changes (for development)
     app.run(debug=True, port=5000)
+
 
